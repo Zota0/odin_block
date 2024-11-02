@@ -45,9 +45,9 @@ import "base:runtime"
 import "core:bufio"
 
 // MARK: Custom modules
-import ll "modules/lua"
-import obj "modules/objects"
-import shaders "modules/shaders"
+import ll "mod/lua"
+import obj "mod/objects"
+import shaders "mod/shaders"
 
 // MARK: Constants
 DEBUG_MODE :: #config(DEBUG_MODE, true)
