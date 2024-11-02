@@ -49,21 +49,66 @@ import ll "modules/lua"
 import obj "modules/objects"
 import shaders "modules/shaders"
 
-
 // MARK: Constants
 DEBUG_MODE :: #config(DEBUG_MODE, true)
 VSYNC_MODE :: #config(VSYNC_MODE, true)
 
-Vec2 :: distinct [2]f32
-Vec3 :: distinct [3]f32
-Vec4 :: distinct [4]f32
-Vec2I :: distinct [2]i32
-Vec3I :: distinct [3]i32
-Vec4I :: distinct [4]i32
+Mat4 :: linalg.Matrix4x4f32
+
+Vec2 :: [2]f32
+Vec3 :: [3]f32
+Vec4 :: [4]f32
+Vec2I :: [2]i32
+Vec3I :: [3]i32
+Vec4I :: [4]i32
+
+// MARK: Camera Structure
+Camera :: struct {
+    position: Vec3,
+    target: Vec3,
+    up: Vec3,
+    fov: f32,
+    aspect: f32,
+    near: f32,
+    far: f32,
+}
 
 // MARK: Variables
 ctx: runtime.Context
 window: glfw.WindowHandle
+camera: Camera
+
+// Initialize camera with default values
+Camera_Init :: proc(windowSize: Vec2I) -> Camera {
+    return Camera{
+        position = Vec3{0, 0, 3},  // Camera position
+        target = Vec3{0, 0, 0},    // Looking at origin
+        up = Vec3{0, 1, 0},        // Up vector
+        fov = 88,                  // 45 degree field of view
+        aspect = f32(windowSize.x) / f32(windowSize.y),
+        near = 1,
+        far = 1000.0,
+    }
+}
+
+// Calculate view matrix
+Get_View_Matrix :: proc(camera: ^Camera) -> Mat4 {
+    return linalg.matrix4_look_at_f32(
+        camera.position,
+        camera.target,
+        camera.up,
+    )
+}
+
+// Calculate projection matrix
+Get_Projection_Matrix :: proc(camera: ^Camera) -> Mat4 {
+    return linalg.matrix4_perspective_f32(
+        math.to_radians_f32(camera.fov),
+        camera.aspect,
+        camera.near,
+        camera.far,
+    )
+}
 
 GLFW_Init :: proc() -> bool {
     if !glfw.Init() {
@@ -102,74 +147,6 @@ Window_Init :: proc(win_size: Vec2I) -> bool {
     return true
 }
 
-// Function to check and print OpenGL errors
-check_gl_error :: proc(message: string) {
-	err := gl.GetError()
-	if err != gl.NO_ERROR {
-		fmt.printfln("OpenGL error [%s]: %x", message, err)
-	}
-}
-
-CreateTriangle :: proc() -> (u32, u32) {
-	fmt.println("## Creating triangle... ##")
-
-	vertices := []f32 {
-		0.0, 0.5, 0.0, /* Top */
-		-0.5, -0.366, 0.0, /* Left */
-		0.5, -0.366, 0.0, /* Right */
-	}
-
-	fmt.println("Vertices array created.")
-
-	vboArray: [1]u32 // Allocate space for 1 buffer.
-	vaoArray: [1]u32 // Allocate space for 1 vertex array.
-
-	fmt.println("Generating Buffers...")
-	gl.GenBuffers(1, &vboArray[0])
-	check_gl_error("GenBuffers")
-
-	fmt.println("Generating Vertex Arrays...")
-	gl.GenVertexArrays(1, &vaoArray[0])
-	check_gl_error("GenVertexArrays")
-
-	fmt.printfln("vao: %d", vaoArray[0])
-	fmt.printfln("vbo: %d", vboArray[0])
-
-	vao := vaoArray[0]
-	vbo := vboArray[0]
-
-	if vao == 0 || vbo == 0 {
-		fmt.eprintln("Failed to generate VAO or VBO")
-		return 0, 0
-	}
-
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	check_gl_error("BindBuffer")
-
-	fmt.println("Binding Vertex Array and Buffer...")
-	gl.BindVertexArray(vao)
-	check_gl_error("BindVertexArray")
-
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices) * size_of(f32), &vertices[0], gl.STATIC_DRAW)
-	check_gl_error("BufferData")
-
-	fmt.println("Setting Vertex Attrib Pointer for position...")
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * size_of(f32), 0)
-	check_gl_error("VertexAttribPointer for position")
-
-	gl.EnableVertexAttribArray(0)
-	check_gl_error("EnableVertexAttribArray for position")
-
-	fmt.println("Unbinding buffers...")
-	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
-	gl.BindVertexArray(0)
-
-	fmt.println("## Triangle creation complete. ##")
-
-	return vao, vbo
-}
-
-
 // MARK: Main
 main :: proc() {
     ctx = context
@@ -187,6 +164,9 @@ main :: proc() {
     if !Window_Init(windowSize) {
         return
     }
+
+    // Initialize camera
+    camera = Camera_Init(windowSize)
     
     fmt.println("Initializing triangle")
     TriangleShaderProgram, ok := shaders.ShaderProgram("shaders/vertex.glsl", "shaders/fragment.glsl")
@@ -196,8 +176,15 @@ main :: proc() {
     }
     defer gl.DeleteProgram(TriangleShaderProgram)
 
+    TriangleVao, TriangleVbo := obj.CreateTriangle()
     
-    TriangleVao, TriangleVbo := CreateTriangle()
+    // Get uniform locations
+    viewLoc := gl.GetUniformLocation(TriangleShaderProgram, "view")
+    projectionLoc := gl.GetUniformLocation(TriangleShaderProgram, "projection")
+    modelLoc := gl.GetUniformLocation(TriangleShaderProgram, "model")
+    
+    // Create model matrix (identity for now)
+    model := linalg.MATRIX4F32_IDENTITY
     
     // MARK: Clear color
     fmt.println("Setting clear color")
@@ -208,8 +195,19 @@ main :: proc() {
     for !glfw.WindowShouldClose(window) {
         gl.Clear(gl.COLOR_BUFFER_BIT)
 
-        // triangle
+        // Update view and projection matrices
+        view := Get_View_Matrix(&camera)
+        projection := Get_Projection_Matrix(&camera)
+
+        // Use shader and set uniforms
         gl.UseProgram(TriangleShaderProgram)
+        
+        // Set matrices in shader
+        gl.UniformMatrix4fv(viewLoc, 1, gl.FALSE, &view[0, 0])
+        gl.UniformMatrix4fv(projectionLoc, 1, gl.FALSE, &projection[0, 0])
+        gl.UniformMatrix4fv(modelLoc, 1, gl.FALSE, &model[0, 0])
+
+        // Draw triangle
         gl.BindVertexArray(TriangleVao)
         gl.DrawArrays(gl.TRIANGLES, 0, 3)
 
