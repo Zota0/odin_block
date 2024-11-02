@@ -1,6 +1,6 @@
 package main
 
-// Named imports
+// MARK: Named imports
 import gl "vendor:OpenGL"
 import lua "vendor:lua/5.4"
 import glfw "vendor:glfw"
@@ -17,7 +17,7 @@ import ansi "core:encoding/ansi"
 import csv "core:encoding/csv"
 import ini "core:encoding/ini"
 
-// Maths
+// MARK: Maths
 import "core:math/big"
 import "core:math/bits"
 import "core:math/cmplx"
@@ -27,7 +27,7 @@ import "core:math/linalg"
 import "core:math/noise"
 import "core:math/rand"
 
-// Other imports
+// MARK: Other imports
 import "core:thread"
 import "core:time"
 import "core:io"
@@ -44,14 +44,13 @@ import "core:strconv"
 import "base:runtime"
 import "core:bufio"
 
-// Custom modules
+// MARK: Custom modules
 import ll "modules/lua"
-import file "modules/files"
 import obj "modules/objects"
 import shaders "modules/shaders"
 
 
-// Constants
+// MARK: Constants
 DEBUG_MODE :: #config(DEBUG_MODE, true)
 VSYNC_MODE :: #config(VSYNC_MODE, true)
 
@@ -62,7 +61,7 @@ Vec2I :: distinct [2]i32
 Vec3I :: distinct [3]i32
 Vec4I :: distinct [4]i32
 
-// Variables
+// MARK: Variables
 ctx: runtime.Context
 window: glfw.WindowHandle
 
@@ -75,10 +74,11 @@ GLFW_Init :: proc() -> bool {
     return true
 }
 
+// MARK: Window init
 Window_Init :: proc(win_size: Vec2I) -> bool {
     fmt.println("Setting GLFW window hints")
-    glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 3)
-    glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 3)
+    glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 4)
+    glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 6)
     glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
     glfw.WindowHint(glfw.OPENGL_FORWARD_COMPAT, glfw.TRUE)
     
@@ -102,15 +102,83 @@ Window_Init :: proc(win_size: Vec2I) -> bool {
     return true
 }
 
+// Function to check and print OpenGL errors
+check_gl_error :: proc(message: string) {
+	err := gl.GetError()
+	if err != gl.NO_ERROR {
+		fmt.printfln("OpenGL error [%s]: %x", message, err)
+	}
+}
+
+CreateTriangle :: proc() -> (u32, u32) {
+	fmt.println("## Creating triangle... ##")
+
+	vertices := []f32 {
+		0.0, 0.5, 0.0, /* Top */
+		-0.5, -0.366, 0.0, /* Left */
+		0.5, -0.366, 0.0, /* Right */
+	}
+
+	fmt.println("Vertices array created.")
+
+	vboArray: [1]u32 // Allocate space for 1 buffer.
+	vaoArray: [1]u32 // Allocate space for 1 vertex array.
+
+	fmt.println("Generating Buffers...")
+	gl.GenBuffers(1, &vboArray[0])
+	check_gl_error("GenBuffers")
+
+	fmt.println("Generating Vertex Arrays...")
+	gl.GenVertexArrays(1, &vaoArray[0])
+	check_gl_error("GenVertexArrays")
+
+	fmt.printfln("vao: %d", vaoArray[0])
+	fmt.printfln("vbo: %d", vboArray[0])
+
+	vao := vaoArray[0]
+	vbo := vboArray[0]
+
+	if vao == 0 || vbo == 0 {
+		fmt.eprintln("Failed to generate VAO or VBO")
+		return 0, 0
+	}
+
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	check_gl_error("BindBuffer")
+
+	fmt.println("Binding Vertex Array and Buffer...")
+	gl.BindVertexArray(vao)
+	check_gl_error("BindVertexArray")
+
+	gl.BufferData(gl.ARRAY_BUFFER, len(vertices) * size_of(f32), &vertices[0], gl.STATIC_DRAW)
+	check_gl_error("BufferData")
+
+	fmt.println("Setting Vertex Attrib Pointer for position...")
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * size_of(f32), 0)
+	check_gl_error("VertexAttribPointer for position")
+
+	gl.EnableVertexAttribArray(0)
+	check_gl_error("EnableVertexAttribArray for position")
+
+	fmt.println("Unbinding buffers...")
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+	gl.BindVertexArray(0)
+
+	fmt.println("## Triangle creation complete. ##")
+
+	return vao, vbo
+}
+
+
+// MARK: Main
 main :: proc() {
-    // MARK: CONTEXT
     ctx = context
 
-    // MARK: WINDOW DEFAULT CONFIG
+    // MARK: Window config
     windowSize := Vec2I{800, 600}
     bgColor := Vec4{0.2, 0.3, 0.3, 1.0}
 
-    // MARK: INIT
+    // MARK: GLFW Init
     if !GLFW_Init() {
         return
     }
@@ -121,16 +189,21 @@ main :: proc() {
     }
     
     fmt.println("Initializing triangle")
-    TriangleShaderProgram := shaders.ShaderProgram("vertex.glsl", "fragment.glsl")
+    TriangleShaderProgram, ok := shaders.ShaderProgram("shaders/vertex.glsl", "shaders/fragment.glsl")
+    if !ok {
+        fmt.eprintln("Failed to initialize triangle")
+        return
+    }
     defer gl.DeleteProgram(TriangleShaderProgram)
+
     
-    TriangleVao, TriangleVbo := obj.CreateTriangle()
+    TriangleVao, TriangleVbo := CreateTriangle()
     
-    // MARK: CLEAR COLOR
+    // MARK: Clear color
     fmt.println("Setting clear color")
     gl.ClearColor(bgColor[0], bgColor[1], bgColor[2], bgColor[3])
     
-    // MARK: GAME LOOP
+    // MARK: Game loop
     fmt.println("Entering game loop")
     for !glfw.WindowShouldClose(window) {
         gl.Clear(gl.COLOR_BUFFER_BIT)
