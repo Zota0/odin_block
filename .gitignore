@@ -1,0 +1,8 @@
+
+*.exe
+*.pdb
+*.dll
+
+**/out/*
+odin_block.exe
+odin_block.pdb
