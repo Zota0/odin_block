@@ -1,21 +1,21 @@
 package main
 
 // MARK: Named imports
-import gl "vendor:OpenGL"
-import lua "vendor:lua/5.4"
-import glfw "vendor:glfw"
-import net "vendor:ENet"
-import img "vendor:stb/image"
-import font "vendor:stb/easy_font"
-import gui "vendor:microui"
-import json "core:encoding/json"
-import base64 "core:encoding/base64"
-import base32 "core:encoding/base32"
-import xml "core:encoding/xml"
-import hex "core:encoding/hex"
 import ansi "core:encoding/ansi"
+import base32 "core:encoding/base32"
+import base64 "core:encoding/base64"
 import csv "core:encoding/csv"
+import hex "core:encoding/hex"
 import ini "core:encoding/ini"
+import json "core:encoding/json"
+import xml "core:encoding/xml"
+import net "vendor:ENet"
+import gl "vendor:OpenGL"
+import glfw "vendor:glfw"
+import lua "vendor:lua/5.4"
+import gui "vendor:microui"
+import font "vendor:stb/easy_font"
+import img "vendor:stb/image"
 
 // MARK: Maths
 import "core:math/big"
@@ -28,29 +28,30 @@ import "core:math/noise"
 import "core:math/rand"
 
 // MARK: Other imports
-import "core:thread"
-import "core:time"
-import "core:io"
-import "core:fmt"
-import "core:reflect"
-import "core:hash"
-import "core:crypto"
-import "core:os"
-import "core:log"
-import "core:debug/trace"
-import "core:math"
-import "core:strings"
-import "core:strconv"
 import "base:runtime"
 import "core:bufio"
+import "core:crypto"
+import "core:debug/trace"
+import "core:fmt"
+import "core:hash"
+import "core:io"
+import "core:log"
+import "core:math"
+import "core:os"
+import "core:reflect"
+import "core:strconv"
+import "core:strings"
+import "core:thread"
+import "core:time"
 
 // MARK: Custom modules
+import const "config/const"
+import win "config/win"
+import camera "mod/camera"
+import input "mod/input"
 import ll "mod/lua"
 import obj "mod/objects"
 import shaders "mod/shaders"
-import camera "mod/camera"
-import const "config/const"
-import win "config/win"
 
 Vec2 :: const.Vec2
 Vec3 :: const.Vec3
@@ -66,195 +67,185 @@ VSYNC_MODE :: const.VSYNC_MODE
 // MARK: Variables
 ctx: runtime.Context
 window: win.Window
+inputManager: input.Input_Manager
 cam: camera.Camera
 
 GLFW_Init :: proc() -> bool {
-    if !glfw.Init() {
-        fmt.eprintln("Failed to initialize GLFW")
-        return false
-    }
-    fmt.println("GLFW initialized successfully")
-    return true
+	if !glfw.Init() {
+		fmt.eprintln("Failed to initialize GLFW")
+		return false
+	}
+	fmt.println("GLFW initialized successfully")
+	return true
+}
+
+// MARK: Window config
+windowSize := Vec2I{800, 600}
+bgColor := Vec4{0.2, 0.3, 0.3, 1.0}
+windowConfig := win.Config {
+    size       = windowSize,
+    title      = "Odin Block",
+    gl_major   = 4,
+    gl_minor   = 6,
+    resizable  = true,
+    vsync      = const.VSYNC_MODE,
+    samples    = 8,
+    fullscreen = false,
 }
 
 // MARK: Main
 main :: proc() {
-    ctx = context
+    // MARK: Setting up context
+	ctx = context
 
-    // MARK: Window config
-    windowSize := Vec2I{}
-    windowSize.x = 800
-    windowSize.y = 600
-    bgColor := Vec4{0.2, 0.3, 0.3, 1.0}
+	// MARK: GLFW Init
+	if !GLFW_Init() {
+		return
+	}
+	defer glfw.Terminate()
 
-    // MARK: GLFW Init
-    if !GLFW_Init() {
-        return
-    }
-    defer glfw.Terminate()
-    
-    windowConfig := win.Config{
-        size = windowSize,
-        title = "Odin Block",
-        gl_major = 4,
-        gl_minor = 6,
-        resizable = true,
-        vsync = const.VSYNC_MODE,
-        samples = 8,
-        fullscreen = false,
-    }
+	// MARK: Window Init
+	window, windowOk := win.WindowInit(windowConfig)
+	if !windowOk {
+		return
+	}
+	defer win.WinDestroy(&window)
 
-    window, windowOk := win.WindowInit(windowConfig)
-    if !windowOk {
-        return
-    }
-    defer win.WinDestroy(&window)
-    
+	inputManager = input.InputInit(window.handle)^
+    defer input.InputDestroy(&inputManager)
 
-    // Initialize cam
-    cam = camera.Camera_Init(windowSize)
-    
-    fmt.println("Initializing triangle")
-    TriangleShaderProgram, triangle_ok := shaders.ShaderProgram("shaders/vertex.glsl", "shaders/fragment.glsl")
-    if !triangle_ok {
-        fmt.eprintln("Failed to initialize triangle")
-    }
-    defer gl.DeleteProgram(TriangleShaderProgram)
+	// MARK: Init camera
+    fmt.println("Initializing camera")
+	cam = camera.Camera_Init(windowSize)
 
-    
-    CircleShaderProgram, circle_ok := shaders.ShaderProgram("shaders/vertex.glsl", "shaders/fragment.glsl")
-    if !circle_ok {
-        fmt.eprintln("Failed to initialize circle")
-    }
-    defer gl.DeleteProgram(CircleShaderProgram)
-
-    RectShaderProgram, rect_ok := shaders.ShaderProgram("shaders/vertex.glsl", "shaders/fragment.glsl")
-    if !rect_ok {
-        fmt.eprintln("Failed to initialize rectangle")
-    }
+    // MARK: Initialize shaders
+    fmt.println("Initializing rectangle")
+	RectShaderProgram, rect_ok := shaders.ShaderProgram(
+		"shaders/vertex.glsl",
+		"shaders/fragment.glsl",
+	)
     defer gl.DeleteProgram(RectShaderProgram)
+	if !rect_ok {
+		fmt.eprintln("Failed to initialize rectangle")
+	}
 
-
-    TriangleVao, TriangleVbo := obj.CreateTexturedTriangle()
-    CircleVao, CircleVbo := obj.CreateCircle(1, 32)
-    RectVao, RectVbo := obj.CreateRectangle(3, 3) 
-
-
-    texture: u32
-    gl.GenTextures(1, &texture)
-    gl.BindTexture(gl.TEXTURE_2D, texture)
-
-    // Set texture wrapping/filtering options
-    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
-    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
-    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-
-    // Load texture image using stb_image
-    width, height, channels: i32
-    data := img.load("texture.png", &width, &height, &channels, 4)
-    if data != nil {
-        gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
-        gl.GenerateMipmap(gl.TEXTURE_2D)
-        img.image_free(data)
-    } else {
-        fmt.eprintln("Failed to load texture")
-    }
-
-    // Get uniform locations
-    viewLocTriangle := gl.GetUniformLocation(TriangleShaderProgram, "view")
-    projectionLocTriangle := gl.GetUniformLocation(TriangleShaderProgram, "projection")
-    modelLocTriangle  := gl.GetUniformLocation(TriangleShaderProgram, "model")
-
-    viewLocCircle := gl.GetUniformLocation(CircleShaderProgram, "view")
-    projectionLocCircle := gl.GetUniformLocation(CircleShaderProgram, "projection")
-    modelLocCircle := gl.GetUniformLocation(CircleShaderProgram, "model")
+	RectVao, RectVbo := obj.CreateRectangleUnindexed(1, 3)
+    RectIdVao, ReactIdEbo, RectIdVbo := obj.CreateRectangle(3, 1);
     
-    viewLocRect, projectionLocRect, modelLocRect := shaders.GetAllUniforms(RectShaderProgram)
+    CubeVao, CubeEbo, CubeVbo := obj.CreateCube(1)
+    CubeModelMat := linalg.MATRIX4F32_IDENTITY
+    CubeView, CubeProj, CubeModel := shaders.GetAllUniforms(RectShaderProgram)
 
-    // Create model matrix (identity for now)
-    model := linalg.MATRIX4F32_IDENTITY
+    // MARK: Create texture params
+	texture: u32
+	gl.GenTextures(1, &texture)
+	gl.BindTexture(gl.TEXTURE_2D, texture)
 
-    // MARK: Clear color
-    fmt.println("Setting clear color")
-    gl.ClearColor(bgColor[0], bgColor[1], bgColor[2], bgColor[3])
-    
-    // MARK: Game loop
-    fmt.println("Entering game loop")
-    for !glfw.WindowShouldClose(window.handle) {
-        gl.Clear(gl.COLOR_BUFFER_BIT)
+	// MARK: Set wrap, filter options
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
-        // Update view and projection matrices
-        view := camera.Get_View_Matrix(&cam)
-        projection := camera.Get_Projection_Matrix(&cam)
+	// MARK: Load texture
+	width, height, channels: i32
+	data := img.load("texture.png", &width, &height, &channels, 4)
+	if data != nil {
+		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+		gl.GenerateMipmap(gl.TEXTURE_2D)
+		img.image_free(data)
+	} else {
+		fmt.eprintln("Failed to load texture")
+	}
 
-        shaders.Apply(
-            TriangleShaderProgram,
-            &view,
-            &projection,
-            &model,
-            TriangleVao,
-            TriangleVbo,
-            viewLocTriangle,
-            projectionLocTriangle,
-            modelLocTriangle,
-            0,
-            3,
-        )
+	// MARK: Get uniform locations
+    fmt.println("Getting uniform locations")
+	RectView, RectProj, RectModel := shaders.GetAllUniforms(RectShaderProgram)
 
-        shaders.Apply(
-            CircleShaderProgram,
-            &view,
-            &projection,
-            &model,
-            CircleVao,
-            CircleVbo,
-            viewLocCircle,
-            projectionLocCircle,
-            modelLocCircle,
-            0,
-            512,
-        )
+	// MARK: Create model matrix
+    fmt.println("Creating model matrix")
+	model := linalg.MATRIX4F32_IDENTITY
 
-        shaders.Apply(
+	// MARK: Clear color
+	fmt.println("Setting clear color")
+	gl.ClearColor(bgColor[0], bgColor[1], bgColor[2], bgColor[3])
+
+    // MARK: Enable depth test
+	gl.Enable(gl.DEPTH_TEST)
+    gl.Enable(gl.CULL_FACE)
+    gl.CullFace(gl.BACK)
+    gl.CullFace(gl.CCW)
+
+	// MARK: Game loop
+	fmt.println("Entering game loop")
+
+    rotation :f32 = 0.0
+
+	for !glfw.WindowShouldClose(window.handle) {
+		
+        // MARK: Clear buffers
+        gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+		// MARK: Update view and projection matrices
+		view := camera.Get_View_Matrix(&cam)
+		projection := camera.Get_Projection_Matrix(&cam)
+        
+        rotation = f32(glfw.GetTime() * 0.5)
+        CubeModelMat = linalg.matrix4_rotate_f32(rotation, {0.5, 1.0, 0.0})
+
+        shaders.Draw(
             RectShaderProgram,
             &view,
             &projection,
-            &model,
-            RectVao,
-            RectVbo,
-            viewLocRect,
-            projectionLocRect,
-            modelLocRect,
+            &CubeModelMat,
+            CubeVao,
+            CubeVbo,
+            nil,
+            CubeView,
+            CubeProj,
+            CubeModel,
             0,
-            6,
+            36
         )
 
-        // // Use shader and set uniforms
-        // gl.UseProgram(TriangleShaderProgram)
-        
-        // // Set matrices in shader
-        // gl.UniformMatrix4fv(viewLocTriangle, 1, gl.FALSE, &view[0, 0])
-        // gl.UniformMatrix4fv(projectionLocTriangle, 1, gl.FALSE, &projection[0, 0])
-        // gl.UniformMatrix4fv(modelLocTriangle, 1, gl.FALSE, &model[0, 0])
+        // MARK: Update model matrix
+		// shaders.Apply(
+		// 	RectShaderProgram,// Use Apply instead of Draw since it's simpler
+		// 	&view,
+		// 	&projection,
+		// 	&model,
+		// 	RectVao,
+		// 	RectVbo,
+		// 	RectView,
+		// 	RectProj,
+		// 	RectModel,
+		// 	0,
+		// 	6,
+		// )
+        shaders.Draw(
+			RectShaderProgram,
+			&view,
+			&projection,
+			&model,
+			RectIdVao,
+			RectIdVbo,
+			nil,
+			RectView,
+			RectProj,
+			RectModel,
+			0,
+			6,
+        )
 
-        // // Draw triangle
-        // gl.BindVertexArray(TriangleVao)
-        // gl.DrawArrays(gl.TRIANGLES, 0, 3)
+		// MARK: Display on the screen
+		glfw.SwapBuffers(window.handle)
 
-        // gl.UseProgram(CircleShaderProgram)
-        // gl.UniformMatrix4fv(viewLocCircle, 1, gl.FALSE, &view[0, 0])
-        // gl.UniformMatrix4fv(projectionLocCircle, 1, gl.FALSE, &projection[0, 0])
-        // gl.UniformMatrix4fv(modelLocCircle, 1, gl.FALSE, &model[0, 0])
+        // MARK: Input update
+		input.InputUpdate(&inputManager)
 
-        // gl.BindVertexArray(CircleVao)
-        // gl.DrawArrays(gl.TRIANGLES, 0, 512)
-
-        // Displaying on the screen
-        glfw.SwapBuffers(window.handle)
-        
-        // Key inputs
-        glfw.PollEvents()
-    }
-    fmt.println("Game loop exited")
+		// Key inputs
+		glfw.PollEvents()
+	}
+    // MARK: Exit
+	fmt.println("Exit")
 }

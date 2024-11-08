@@ -4,26 +4,26 @@ import "core:math"
 import "core:math/linalg"
 
 // Move camera along its local axes
-Camera_Move_Forward :: proc(camera: ^Camera, distance: f32) {
+CameraMoveForward :: proc(camera: ^Camera, distance: f32) {
     direction := linalg.normalize(camera.target - camera.position)
     camera.position += direction * distance
     camera.target += direction * distance
 }
 
-Camera_Move_Right :: proc(camera: ^Camera, distance: f32) {
+CameraMoveRight :: proc(camera: ^Camera, distance: f32) {
     direction := linalg.normalize(camera.target - camera.position)
     right := linalg.normalize(linalg.cross(direction, camera.up))
     camera.position += right * distance
     camera.target += right * distance
 }
 
-Camera_Move_Up :: proc(camera: ^Camera, distance: f32) {
+CameraMoveUp :: proc(camera: ^Camera, distance: f32) {
     camera.position += camera.up * distance
     camera.target += camera.up * distance
 }
 
 // Rotate camera around its local axes
-Camera_Rotate :: proc(camera: ^Camera, yaw, pitch: f32) {
+CameraRotate :: proc(camera: ^Camera, yaw, pitch: f32) {
     // Calculate the direction vector from position to target
     direction := linalg.normalize(camera.target - camera.position)
     
@@ -41,7 +41,7 @@ Camera_Rotate :: proc(camera: ^Camera, yaw, pitch: f32) {
 }
 
 // Orbit camera around target point
-Camera_Orbit :: proc(camera: ^Camera, yaw, pitch: f32) {
+CameraOrbit :: proc(camera: ^Camera, yaw, pitch: f32) {
     // Calculate current spherical coordinates
     offset := camera.position - camera.target
     radius := linalg.length(offset)
@@ -61,7 +61,7 @@ Camera_Orbit :: proc(camera: ^Camera, yaw, pitch: f32) {
 }
 
 // Zoom camera (change distance to target)
-Camera_Zoom :: proc(camera: ^Camera, factor: f32) {
+CameraZoom :: proc(camera: ^Camera, factor: f32) {
     direction := linalg.normalize(camera.target - camera.position)
     distance := linalg.length(camera.target - camera.position)
     new_distance := clamp(distance * factor, 0.1, 100.0)
@@ -76,12 +76,12 @@ clamp :: proc(value, min, max: f32) -> f32 {
 }
 
 // Update camera field of view
-Camera_Set_FOV :: proc(camera: ^Camera, fov: f32) {
+CameraSet_FOV :: proc(camera: ^Camera, fov: f32) {
     camera.fov = clamp(fov, 10.0, 120.0)
 }
 
 // Reset camera to default position
-Camera_Reset :: proc(camera: ^Camera) {
+CameraReset :: proc(camera: ^Camera) {
     camera.position = Vec3{0, 0, 3}
     camera.target = Vec3{0, 0, 0}
     camera.up = Vec3{0, 1, 0}
