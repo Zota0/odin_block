@@ -132,51 +132,43 @@ main :: proc() {
 
 	// MARK: Initialize shaders
 	fmt.println("Initializing rectangle")
-	RectShaderProgram, rect_ok := shaders.ShaderProgram(
+	cubeShaderProgram, cubeShaderOk := shaders.ShaderProgram(
 		"shaders/vertex.glsl",
 		"shaders/fragment.glsl",
 	)
-	defer gl.DeleteProgram(RectShaderProgram)
-	if !rect_ok {
+	defer gl.DeleteProgram(cubeShaderProgram)
+	if !cubeShaderOk {
 		fmt.println("Failed to initialize rectangle")
 	}
 
-	RectVao, RectVbo := obj.CreateRectangleUnindexed(1, 3)
-	RectIdVao, ReactIdEbo, RectIdVbo := obj.CreateRectangle(3, 1)
-
 	CubeVao, CubeEbo, CubeVbo := obj.CreateCube(1)
 	CubeModelMat := linalg.MATRIX4F32_IDENTITY
-	CubeView, CubeProj, CubeModel := shaders.GetAllUniforms(RectShaderProgram)
+	CubeView, CubeProj, CubeModel := shaders.GetAllUniforms(cubeShaderProgram)
 
-	// MARK: Create texture params
-	texture: u32
-	gl.GenTextures(1, &texture)
-	gl.BindTexture(gl.TEXTURE_2D, texture)
+    {
+        // // MARK: Create texture params
+        // texture: u32
+        // gl.GenTextures(1, &texture)
+        // gl.BindTexture(gl.TEXTURE_2D, texture)
 
-	// MARK: Set wrap, filter options
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+        // // MARK: Set wrap, filter options
+        // gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+        // gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+        // gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+        // gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
-	// MARK: Load texture
-	width, height, channels: i32
-	data := img.load("texture.png", &width, &height, &channels, 4)
-	if data != nil {
-		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
-		gl.GenerateMipmap(gl.TEXTURE_2D)
-		img.image_free(data)
-	} else {
-		fmt.println("Failed to load texture")
-	}
-
-	// MARK: Get uniform locations
-	fmt.println("Getting uniform locations")
-	RectView, RectProj, RectModel := shaders.GetAllUniforms(RectShaderProgram)
-
-	// MARK: Create model matrix
-	fmt.println("Creating model matrix")
-	model := linalg.MATRIX4F32_IDENTITY
+        // // MARK: Load texture
+        // width, height, channels: i32
+        // data := img.load("texture.png", &width, &height, &channels, 4)
+        // if data != nil {
+        // 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+        // 	gl.GenerateMipmap(gl.TEXTURE_2D)
+        // 	img.image_free(data)
+        // } else {
+        // 	fmt.println("Failed to load texture")
+        // }
+        // gl.BindTexture(gl.TEXTURE_2D, 0)
+    }
 
 	// MARK: Clear color
 	fmt.println("Setting clear color")
@@ -194,10 +186,6 @@ main :: proc() {
 	lastFrameTime: f32 = f32(glfw.GetTime())
 	lastFPSUpdate: f32 = lastFrameTime
 	currentFPS: u8 = 0
-
-	rotation: f32 = 0
-
-    
 
 	glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_DISABLED)
 
@@ -233,7 +221,7 @@ main :: proc() {
 		projection := camera.GetProjectionMatrix(&cam)
 
 		shaders.Draw(
-			RectShaderProgram,
+			cubeShaderProgram,
 			&view,
 			&projection,
 			&CubeModelMat,
