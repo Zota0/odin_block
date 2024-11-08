@@ -5,6 +5,7 @@ import "core:math/linalg"
 // MARK: const
 DEBUG_MODE :: #config(DEBUG_MODE, true)
 VSYNC_MODE :: #config(VSYNC_MODE, true)
+FPS_UPDATE_RATE :: #config(FPS_UPDATE_RATE, 1) // For displaying fps
 
 Mat4 :: linalg.Matrix4x4f32
 

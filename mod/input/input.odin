@@ -10,7 +10,7 @@ import "../../config/const"
 Vec2f64 :: const.Vec2f64
 
 // Input state tracking
-Key_State :: enum {
+KeyState :: enum {
     Up,         // Key is not pressed
     Pressed,    // Key was just pressed this frame
     Held,       // Key is being held down
@@ -18,7 +18,7 @@ Key_State :: enum {
     Tapped,     // Key was pressed and released within tap threshold
 }
 
-Mouse_State :: enum {
+MouseState :: enum {
     Up,
     Pressed,
     Held,
@@ -27,19 +27,15 @@ Mouse_State :: enum {
 
 KEY :: uint
 
-Mouse_Button :: enum {
-    Left,
-    Right,
-    Middle,
-}
+MouseButton :: u8
 
-Input_Manager :: struct {
+InputManager :: struct {
     // Keyboard state
-    key_states: map[KEY]Key_State,
+    key_states: map[KEY]KeyState,
     key_press_times: map[KEY]f64,
     
     // Mouse state
-    mouse_states: map[Mouse_Button]Mouse_State,
+    mouse_states: map[MouseButton]MouseState,
     mouse_position: Vec2f64,
     mouse_previous: Vec2f64,
     mouse_delta: Vec2f64,
@@ -54,16 +50,16 @@ Input_Manager :: struct {
 }
 
 // Initialize input manager
-InputInit :: proc(window: glfw.WindowHandle) -> ^Input_Manager {
-    input := new(Input_Manager)
+InputInit :: proc(window: glfw.WindowHandle) -> ^InputManager {
+    input := new(InputManager)
     input.window = window
     input.tap_threshold = 0.2  // 200ms tap threshold
     input.double_click_threshold = 0.3  // 300ms double click threshold
     
     // Initialize maps
-    input.key_states = make(map[KEY]Key_State)
+    input.key_states = make(map[KEY]KeyState)
     input.key_press_times = make(map[KEY]f64)
-    input.mouse_states = make(map[Mouse_Button]Mouse_State)
+    input.mouse_states = make(map[MouseButton]MouseState)
     
     // Set up GLFW callbacks
     glfw.SetKeyCallback(window, KeyCallback)
@@ -75,7 +71,7 @@ InputInit :: proc(window: glfw.WindowHandle) -> ^Input_Manager {
 }
 
 // Cleanup
-InputDestroy :: proc(input: ^Input_Manager) {
+InputDestroy :: proc(input: ^InputManager) {
     delete(input.key_states)
     delete(input.key_press_times)
     delete(input.mouse_states)
@@ -83,7 +79,7 @@ InputDestroy :: proc(input: ^Input_Manager) {
 }
 
 // Update input states
-InputUpdate :: proc(input: ^Input_Manager) {
+InputUpdate :: proc(input: ^InputManager) {
     // Update mouse delta
     x, y := glfw.GetCursorPos(input.window)
     input.mouse_delta = {
@@ -120,55 +116,55 @@ InputUpdate :: proc(input: ^Input_Manager) {
     input.scroll_offset = {0, 0}
 }
 
-// Keyboard input checking
-IsKeyPressed :: proc(input: ^Input_Manager, key: KEY) -> bool {
+// MARK: KEY CHECKS
+IsKeyPressed :: proc(input: ^InputManager, key: KEY) -> bool {
     return input.key_states[key] == .Pressed
 }
-
-IsKeyHeld :: proc(input: ^Input_Manager, key: KEY) -> bool {
+IsKeyHeld :: proc(input: ^InputManager, key: KEY) -> bool {
     return input.key_states[key] == .Held
 }
-
-IsKeyReleased :: proc(input: ^Input_Manager, key: KEY) -> bool {
+IsKeyReleased :: proc(input: ^InputManager, key: KEY) -> bool {
     return input.key_states[key] == .Released
 }
-
-IsKeyTapped :: proc(input: ^Input_Manager, key: KEY) -> bool {
+IsKeyTapped :: proc(input: ^InputManager, key: KEY) -> bool {
     return input.key_states[key] == .Tapped
 }
-
-IsKeyDown :: proc(input: ^Input_Manager, key: KEY) -> bool {
+IsKeyDown :: proc(input: ^InputManager, key: KEY) -> bool {
     state := input.key_states[key]
     return state == .Pressed || state == .Held
 }
+IsKeyUp :: proc(input: ^InputManager, key: KEY) -> bool {
+    state := input.key_states[key]
+    return state == .Up || state == .Released
+}
 
-// Mouse input checking
-IsMouseButtonPressed :: proc(input: ^Input_Manager, button: Mouse_Button) -> bool {
+// MARK: MOUSE KEY CHECKS
+IsMouseButtonPressed :: proc(input: ^InputManager, button: MouseButton) -> bool {
     return input.mouse_states[button] == .Pressed
 }
-
-IsMouseButtonHeld :: proc(input: ^Input_Manager, button: Mouse_Button) -> bool {
+IsMouseButtonHeld :: proc(input: ^InputManager, button: MouseButton) -> bool {
     return input.mouse_states[button] == .Held
 }
-
-IsMouseButtonReleased :: proc(input: ^Input_Manager, button: Mouse_Button) -> bool {
+IsMouseButtonReleased :: proc(input: ^InputManager, button: MouseButton) -> bool {
     return input.mouse_states[button] == .Released
 }
-
-IsMouseButtonDown :: proc(input: ^Input_Manager, button: Mouse_Button) -> bool {
+IsMouseButtonDown :: proc(input: ^InputManager, button: MouseButton) -> bool {
     state := input.mouse_states[button]
     return state == .Pressed || state == .Held
 }
+IsMouseButtonUp :: proc(input: ^InputManager, button: MouseButton) -> bool {
+    state := input.mouse_states[button]
+    return state == .Up || state == .Released
+}
 
-GetMousePosition :: proc(input: ^Input_Manager) -> Vec2f64 {
+// MARK: MOUSE POSITIONS
+GetMousePosition :: proc(input: ^InputManager) -> Vec2f64 {
     return input.mouse_position
 }
-
-GetMouseDelta :: proc(input: ^Input_Manager) -> Vec2f64 {
+GetMouseDelta :: proc(input: ^InputManager) -> Vec2f64 {
     return input.mouse_delta
 }
-
-GetScrollOffset :: proc(input: ^Input_Manager) -> Vec2f64 {
+GetScrollOffset :: proc(input: ^InputManager) -> Vec2f64 {
     return input.scroll_offset
 }
 
@@ -176,7 +172,7 @@ GetScrollOffset :: proc(input: ^Input_Manager) -> Vec2f64 {
 @(private)
 KeyCallback :: proc "c" (window: glfw.WindowHandle, key: i32, scancode: i32, action: i32, mods: i32) {
     context = runtime.default_context()
-    input := cast(^Input_Manager)glfw.GetWindowUserPointer(window)
+    input := cast(^InputManager)glfw.GetWindowUserPointer(window)
     if input == nil do return
     
     current_time := glfw.GetTime()
@@ -200,23 +196,23 @@ KeyCallback :: proc "c" (window: glfw.WindowHandle, key: i32, scancode: i32, act
 @(private)
 MouseButtonCallback :: proc "c" (window: glfw.WindowHandle, button: i32, action: i32, mods: i32) {
     context = runtime.default_context()
-    input := cast(^Input_Manager)glfw.GetWindowUserPointer(window)
+    input := cast(^InputManager)glfw.GetWindowUserPointer(window)
     if input == nil do return
     
-    mouse_button := Mouse_Button(button)
+    MouseButton := MouseButton(button)
     
     switch action {
     case glfw.PRESS:
-        input.mouse_states[mouse_button] = .Pressed
+        input.mouse_states[MouseButton] = .Pressed
     case glfw.RELEASE:
-        input.mouse_states[mouse_button] = .Released
+        input.mouse_states[MouseButton] = .Released
     }
 }
 
 @(private)
 CursorPositionCallback :: proc "c" (window: glfw.WindowHandle, x: f64, y: f64) {
     context = runtime.default_context()
-    input := cast(^Input_Manager)glfw.GetWindowUserPointer(window)
+    input := cast(^InputManager)glfw.GetWindowUserPointer(window)
     if input == nil do return
     
     input.mouse_position = {x, y}
@@ -225,7 +221,7 @@ CursorPositionCallback :: proc "c" (window: glfw.WindowHandle, x: f64, y: f64) {
 @(private)
 ScrollCallback :: proc "c" (window: glfw.WindowHandle, x_offset: f64, y_offset: f64) {
     context = runtime.default_context()
-    input := cast(^Input_Manager)glfw.GetWindowUserPointer(window)
+    input := cast(^InputManager)glfw.GetWindowUserPointer(window)
     if input == nil do return
     
     input.scroll_offset = {x_offset, y_offset}

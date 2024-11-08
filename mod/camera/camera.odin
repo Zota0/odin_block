@@ -35,7 +35,7 @@ Camera :: struct {
 }
 
 // Initialize camera with default values
-Camera_Init :: proc(windowSize: Vec2I) -> Camera {
+CameraInit :: proc(windowSize: Vec2I) -> Camera {
     return Camera{
         position = Vec3{0, 0, 3},  // Camera position
         target = Vec3{0, 0, 0},    // Looking at origin
@@ -48,7 +48,7 @@ Camera_Init :: proc(windowSize: Vec2I) -> Camera {
 }
 
 // Calculate view matrix
-Get_View_Matrix :: proc(camera: ^Camera) -> Mat4 {
+GetViewMatrix :: proc(camera: ^Camera) -> Mat4 {
     return linalg.matrix4_look_at_f32(
         camera.position,
         camera.target,
@@ -57,7 +57,7 @@ Get_View_Matrix :: proc(camera: ^Camera) -> Mat4 {
 }
 
 // Calculate projection matrix
-Get_Projection_Matrix :: proc(camera: ^Camera) -> Mat4 {
+GetProjectionMatrix :: proc(camera: ^Camera) -> Mat4 {
     return linalg.matrix4_perspective_f32(
         math.to_radians_f32(camera.fov),
         camera.aspect,

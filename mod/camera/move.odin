@@ -3,7 +3,19 @@ package camera
 import "core:math"
 import "core:math/linalg"
 
-// Move camera along its local axes
+
+CameraMoveBackward :: proc(camera: ^Camera, distance: f32) {
+    CameraMoveForward(&camera^, -distance)
+}
+
+CameraMoveLeft :: proc(camera: ^Camera, distance: f32) {
+    CameraMoveRight(&camera^, -distance)
+}
+
+CameraMoveDown :: proc(camera: ^Camera, distance: f32) {
+    CameraMoveUp(&camera^, -distance)
+}
+
 CameraMoveForward :: proc(camera: ^Camera, distance: f32) {
     direction := linalg.normalize(camera.target - camera.position)
     camera.position += direction * distance
