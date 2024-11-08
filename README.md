@@ -1,6 +1,6 @@
 # ODIN BLOCK
 
-Gra typu minecraft ~~zrobiona~~ robiona w języku ODIN z OpenGL i GLFW
+Gra typu minecraft ~~zrobiona~~ robiona w języku ODIN z OpenGL i GLFW<br>
 **_TYLKO TESTOWANE NA WINDOWS 10_**
 
 ## JAK ZAGRAC
