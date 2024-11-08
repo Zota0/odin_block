@@ -54,6 +54,7 @@ import ll "mod/lua"
 import obj "mod/objects"
 import shaders "mod/shaders"
 import binds "config/binds"
+import chunk "mod/chunk"
 
 Vec2 :: const.Vec2
 Vec3 :: const.Vec3
