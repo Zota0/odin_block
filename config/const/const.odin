@@ -10,6 +10,7 @@ CHUNK_SIZE_X :: #config(CHUNK_SIZE_X, 16)
 CHUNK_SIZE_Z :: #config(CHUNK_SIZE_Z, 16)
 CHUNK_SIZE_Y :: #config(CHUNK_SIZE_Y, 256)
 SUBCHUNK_Y :: #config(SUBCHUNK_Y, 32)
+WORLD_SIZE_CHUNKS :: #config(WORLD_SIZE_CHUNKS, 1)
 
 Mat4 :: linalg.Matrix4x4f32
 

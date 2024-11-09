@@ -311,3 +311,4 @@ CreateCube :: proc(size: f32 = 1.0) -> (vao: u32, ebo: u32, vbo: u32) {
     
     return CreateBufferIndexed(vertices, indices, attributes)
 }
+

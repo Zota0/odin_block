@@ -2,5 +2,19 @@
     "Codegeex.GenerationPreference": "automatic",
     "Codegeex.Chat.fontSize": 10,
     "Codegeex.CommitMessage.LanguagePreference": "English",
-    "Codegeex.RepoIndex": true
+    "Codegeex.RepoIndex": true,
+    "sqltools.connections": [
+        {
+            "pgOptions": {
+                "ssl": {
+                    "rejectUnauthorized": true
+                }
+            },
+            "previewLimit": 50,
+            "server": "127.0.0.1",
+            "driver": "PostgreSQL",
+            "name": "Neon",
+            "connectString": "postgresql://neondb_owner:DVuQ6goBXEG4@ep-wild-star-a2o3n4ut.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+        }
+    ]
 }
